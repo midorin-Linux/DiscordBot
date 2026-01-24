@@ -1,4 +1,4 @@
-use crate::app::config::Config;
+use crate::utils::config::Config;
 
 use anyhow::Result;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
