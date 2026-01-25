@@ -10,7 +10,7 @@ pub fn load_system_prompt() -> String {
         Ok(content) => {
             let trimmed = content.trim();
             if trimmed.is_empty() {
-                DEFAULT_PROMPT.to_string()
+                DEFAULT_PROMPT.to_string().add(METADATA_PROMPT)
             } else {
                 trimmed.to_string().add(METADATA_PROMPT)
             }
@@ -21,7 +21,7 @@ pub fn load_system_prompt() -> String {
                 path,
                 err
             );
-            DEFAULT_PROMPT.to_string()
+            DEFAULT_PROMPT.to_string().add(METADATA_PROMPT)
         }
     }
 }
