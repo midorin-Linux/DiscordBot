@@ -148,11 +148,4 @@ impl Agent {
     pub async fn update_system_prompt(&self, new_prompt: String) {
         self.chat_service.write().await.update_system_prompt(new_prompt);
     }
-
-    pub async fn update_tool_system_prompt(&self, new_prompt: String) {
-        self.chat_service
-            .write()
-            .await
-            .update_tool_system_prompt(new_prompt);
-    }
 }

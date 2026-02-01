@@ -13,13 +13,12 @@ use std::env;
 pub struct ChatService {
     openai: OpenAiService,
     system_prompt: String,
-    tool_system_prompt: String,
     max_tool_rounds: usize,
 }
 
 impl ChatService {
     pub fn new(openai: OpenAiService, system_prompt: String) -> Self {
-        const TOOL_SYSTEM_PROMPT: &str = "You are helpful discord assistant";
+
         let max_tool_rounds = env::var("OPENAI_MAX_TOOL_ROUNDS")
             .ok()
             .and_then(|value| value.parse::<usize>().ok())
@@ -27,7 +26,6 @@ impl ChatService {
             .unwrap_or(20);
         Self {
             openai,
-            tool_system_prompt: TOOL_SYSTEM_PROMPT.to_string(),
             system_prompt,
             max_tool_rounds,
         }
@@ -56,14 +54,8 @@ impl ChatService {
     ) -> Result<String> {
         tracing::debug!("Chat with history: {}", user_message);
 
-        let system_prompt = if use_tools {
-            &self.tool_system_prompt
-        } else {
-            &self.system_prompt
-        };
-
         let mut messages = vec![
-            self.openai.create_system_message(system_prompt)?,
+            self.openai.create_system_message(&self.system_prompt)?,
         ];
 
         for msg in memory.get_messages() {
@@ -149,10 +141,6 @@ impl ChatService {
 
     pub fn update_system_prompt(&mut self, new_prompt: String) {
         self.system_prompt = new_prompt;
-    }
-
-    pub fn update_tool_system_prompt(&mut self, new_prompt: String) {
-        self.tool_system_prompt = new_prompt;
     }
 
     pub fn system_prompt(&self) -> &str {
