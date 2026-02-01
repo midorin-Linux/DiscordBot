@@ -3,7 +3,7 @@
 version = 4
 
 [[package]]
-name = "DiscordBot"
+name = "Neko-AI"
 version = "0.0.1"
 dependencies = [
  "anyhow",
