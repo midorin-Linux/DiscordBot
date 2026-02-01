@@ -8,20 +8,28 @@ use async_openai::types::chat::{
     ChatCompletionMessageToolCalls, ChatCompletionRequestAssistantMessageArgs,
 };
 use serenity::all::Context as SerenityContext;
+use std::env;
 
 pub struct ChatService {
     openai: OpenAiService,
     system_prompt: String,
     tool_system_prompt: String,
+    max_tool_rounds: usize,
 }
 
 impl ChatService {
     pub fn new(openai: OpenAiService, system_prompt: String) -> Self {
         const TOOL_SYSTEM_PROMPT: &str = "You are helpful discord assistant";
+        let max_tool_rounds = env::var("OPENAI_MAX_TOOL_ROUNDS")
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+            .filter(|value| *value > 0)
+            .unwrap_or(20);
         Self {
             openai,
             tool_system_prompt: TOOL_SYSTEM_PROMPT.to_string(),
             system_prompt,
+            max_tool_rounds,
         }
     }
 
@@ -77,46 +85,54 @@ impl ChatService {
         if use_tools {
             let tool_ctx = ctx.ok_or_else(|| anyhow!("Tools require Discord context"))?;
             let tools = tool_definitions()?;
-            let (assistant_content, tool_calls) = self
-                .openai
-                .create_chat_completion_with_tools(messages.clone(), tools, None)
-                .await?;
+            let mut tool_rounds = 0usize;
 
-            if let Some(tool_calls) = tool_calls {
-                let mut assistant_message = ChatCompletionRequestAssistantMessageArgs::default();
-                if !assistant_content.is_empty() {
-                    assistant_message.content(assistant_content);
-                }
-                assistant_message.tool_calls(tool_calls.clone());
-                messages.push(assistant_message.build()?.into());
+            loop {
+                let (assistant_content, tool_calls) = self
+                    .openai
+                    .create_chat_completion_with_tools(messages.clone(), tools.clone(), None)
+                    .await?;
 
-                for tool_call in tool_calls {
-                    match tool_call {
-                        ChatCompletionMessageToolCalls::Function(call) => {
-                            let output =
-                                execute_tool_call(tool_ctx, &call.function.name, &call.function.arguments).await;
-                            messages.push(
-                                self.openai
-                                    .create_tool_message(&call.id, &output)?,
-                            );
-                        }
-                        ChatCompletionMessageToolCalls::Custom(call) => {
-                            let output = format!("custom tool not supported: {}", call.custom_tool.name);
-                            messages.push(
-                                self.openai
-                                    .create_tool_message(&call.id, &output)?,
-                            );
+                if let Some(tool_calls) = tool_calls {
+                    let mut assistant_message = ChatCompletionRequestAssistantMessageArgs::default();
+                    if !assistant_content.is_empty() {
+                        assistant_message.content(assistant_content);
+                    }
+                    assistant_message.tool_calls(tool_calls.clone());
+                    messages.push(assistant_message.build()?.into());
+
+                    for tool_call in tool_calls {
+                        match tool_call {
+                            ChatCompletionMessageToolCalls::Function(call) => {
+                                let output = execute_tool_call(
+                                    tool_ctx,
+                                    &call.function.name,
+                                    &call.function.arguments,
+                                )
+                                .await;
+                                messages.push(self.openai.create_tool_message(&call.id, &output)?);
+                            }
+                            ChatCompletionMessageToolCalls::Custom(call) => {
+                                let output =
+                                    format!("custom tool not supported: {}", call.custom_tool.name);
+                                messages.push(self.openai.create_tool_message(&call.id, &output)?);
+                            }
                         }
                     }
+
+                    tool_rounds += 1;
+                    if tool_rounds >= self.max_tool_rounds {
+                        return Err(anyhow!(
+                            "Exceeded max tool iterations ({})",
+                            self.max_tool_rounds
+                        ));
+                    }
+                    continue;
                 }
 
-                let response = self.openai.create_chat_completion(messages).await?;
-                tracing::debug!("Chat response with tools: {}", response);
-                return Ok(response);
+                tracing::debug!("Chat response without tool calls: {}", assistant_content);
+                return Ok(assistant_content);
             }
-
-            tracing::debug!("Chat response without tool calls: {}", assistant_content);
-            return Ok(assistant_content);
         }
 
         let response = self.openai.create_chat_completion(messages).await?;

@@ -100,6 +100,5 @@ impl EventHandler for Handler {
 
     async fn ready(&self, _ctx: Context, data_about_bot: Ready) {
         tracing::info!("{} is connected to Discord!", data_about_bot.user.name);
-        println!("{} Ready as {}!\n", "✔".green(), data_about_bot.user.name.blue());
     }
 }
