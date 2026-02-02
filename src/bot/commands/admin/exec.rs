@@ -2,12 +2,12 @@ use std::string::ToString;
 use crate::bot::commands::commands::Context;
 
 /// Chat with tool (Only admin)
-#[poise::command(slash_command, prefix_command, required_permissions = "ADMINISTRATOR")]
+#[poise::command(prefix_command, required_permissions = "ADMINISTRATOR")]
 pub async fn exec(
     ctx: Context<'_>,
     #[description = "New system prompt"] message: String,
 ) -> anyhow::Result<()> {
-    ctx.defer().await?;
+    let _typing = ctx.channel_id().start_typing(&ctx.serenity_context().http);
 
     let metadata = construct_metadata(&ctx).await;
     let message = format!(
