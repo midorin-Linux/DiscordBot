@@ -35,16 +35,6 @@ NekoAI/
 │   │       ├── tools.rs        # ツール定義と実行の中核
 │   │       ├── discord.rs      # Discord操作ツールの統合
 │   │       └── discord_tools/  # Discord固有のツール実装
-│   │           ├── channel.rs  # チャンネル操作
-│   │           ├── emoji.rs    # 絵文字操作
-│   │           ├── guild.rs    # サーバー操作
-│   │           ├── invite.rs   # 招待リンク操作
-│   │           ├── member.rs   # メンバー操作
-│   │           ├── message.rs  # メッセージ操作
-│   │           ├── role.rs     # ロール操作
-│   │           ├── schedule.rs # スケジュール操作
-│   │           ├── thread.rs   # スレッド操作
-│   │           └── voice.rs    # ボイスチャンネル操作
 │   │
 │   ├── bot/                    # 【Discord層】Discord固有のUI/UXを管理
 │   │   ├── mod.rs              # Botモジュールのエクスポート
@@ -54,12 +44,7 @@ NekoAI/
 │   │       ├── mod.rs          # コマンドモジュールのエクスポート
 │   │       ├── commands.rs     # コマンド定義
 │   │       ├── admin/          # 管理者用コマンド
-│   │       │   ├── mod.rs
-│   │       │   ├── exec.rs     # コード実行コマンド
-│   │       │   └── prompt.rs   # プロンプト管理コマンド
 │   │       └── general/        # 一般ユーザー用コマンド
-│   │           ├── mod.rs
-│   │           └── ping.rs     # Pingコマンド
 │   │
 │   ├── core/                   # 【制御層】アプリの生命維持装置
 │   │   ├── mod.rs              # Coreモジュールのエクスポート
@@ -84,7 +69,6 @@ NekoAI/
 │
 ├── .env                        # APIキーなどの機密情報（Git管理外）
 ├── .env.example                # .envのテンプレート
-├── .github/workflows/rust.yml  # GitHub Actions CI/CD設定
 ├── Cargo.toml                  # 依存ライブラリの管理
 ├── Cargo.lock                  # 依存関係のロックファイル
 ├── FEATURE.md                  # 機能仕様書
