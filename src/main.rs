@@ -18,7 +18,7 @@ async fn main() -> Result<()> {
     let _ = init_tracing(config.clone())?;
 
     let mut app = bot::client::App::new(config);
-    app.run().await?;
+    app.await.run().await?;
 
     Ok(())
 }

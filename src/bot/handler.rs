@@ -13,6 +13,7 @@ use serenity::{
 pub struct Handler {
     pub allowed_user_id: Option<u64>,
     pub agent: Arc<Agent>,
+    pub pool: sqlx::SqlitePool,
 }
 
 impl Handler {
