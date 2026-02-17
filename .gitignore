@@ -3,3 +3,4 @@
 *.pdb
 .idea
 .env
+database.sqlite

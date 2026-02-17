@@ -44,6 +44,8 @@ pub struct Config {
     #[serde(rename = "token")]
     pub discord_token: String,
 
+    pub database_url: String,
+
     pub allowed_user_id: Option<u64>,
 
     pub target_guild_id: u64,
