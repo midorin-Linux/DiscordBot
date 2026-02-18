@@ -17,7 +17,8 @@ pub struct Application {
 
 impl Application {
     pub async fn new(config: Config) -> Result<Self> {
-        let discord_client = DiscordClient::new(config.discord_token.clone(), config.guild_id).await?;
+        let discord_client =
+            DiscordClient::new(config.discord_token.clone(), config.guild_id).await?;
 
         Ok(Self {
             config,

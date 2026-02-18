@@ -19,11 +19,9 @@ async fn on_error(error: poise::FrameworkError<'_, Data, anyhow::Error>) {
 }
 
 pub async fn command_framework(guild_id: u64) -> poise::framework::Framework<Data, anyhow::Error> {
-    let mut commands = vec![
-        health::health()
-    ];
+    let commands = vec![health::health()];
 
-    let framework = poise::Framework::builder()
+    poise::Framework::builder()
         .options(poise::FrameworkOptions {
             commands,
             prefix_options: poise::PrefixFrameworkOptions {
@@ -45,11 +43,15 @@ pub async fn command_framework(guild_id: u64) -> poise::framework::Framework<Dat
         })
         .setup(move |ctx, _ready, framework| {
             Box::pin(async move {
-                poise::builtins::register_in_guild(ctx, &framework.options().commands, guild_id.into()).await.unwrap();
+                poise::builtins::register_in_guild(
+                    ctx,
+                    &framework.options().commands,
+                    guild_id.into(),
+                )
+                .await
+                .unwrap();
                 Ok(Data {})
             })
         })
-        .build();
-
-    framework
+        .build()
 }

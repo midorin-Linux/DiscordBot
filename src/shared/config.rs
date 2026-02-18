@@ -11,7 +11,7 @@ pub struct Config {
     pub ai_provider_token: String,
 
     pub discord_token: String,
-    
+
     pub guild_id: u64,
 
     #[serde(default = "default_log_level")]
