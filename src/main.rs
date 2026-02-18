@@ -5,10 +5,10 @@ use tracing::debug;
 async fn main() -> Result<()> {
     println!("NekoAI (Ver. 0.0.2-alpha)\n");
 
-    let config = neko_ai::infrastructure::config::settings::Settings::load()
+    let config = neko_ai::shared::config::Config::load()
         .context("Failed to load config")?;
 
-    neko_ai::infrastructure::observability::logger::init_tracing(&config.log_level);
+    neko_ai::shared::logger::init_tracing(&config.log_level);
 
     debug!("----------BEGIN SETTINGS----------");
     debug!("{:#?}", &config);

@@ -7,7 +7,7 @@ fn default_log_level() -> String {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Settings {
+pub struct Config {
     pub ai_provider_token: String,
 
     pub discord_token: String,
@@ -16,7 +16,7 @@ pub struct Settings {
     pub log_level: String,
 }
 
-impl Settings {
+impl Config {
     pub fn load() -> Result<Self, ConfigError> {
         dotenvy::dotenv().ok();
 

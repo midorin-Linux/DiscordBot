@@ -3,23 +3,25 @@ pub mod domain;
 pub mod infrastructure;
 pub mod models;
 pub mod presentation;
+pub mod shared;
 
-use infrastructure::{config::settings::Settings, discord::client::DiscordClient};
+use infrastructure::discord::client::DiscordClient;
+use shared::config::Config;
 
 use anyhow::{Context, Result};
 
 pub struct Application {
+    config: Config,
     discord_client: DiscordClient,
-    settings: Settings,
 }
 
 impl Application {
-    pub async fn new(settings: Settings) -> Result<Self> {
-        let discord_client = DiscordClient::new(settings.discord_token.clone()).await?;
+    pub async fn new(config: Config) -> Result<Self> {
+        let discord_client = DiscordClient::new(config.discord_token.clone()).await?;
 
         Ok(Self {
-            discord_client,
-            settings,
+            config,
+            discord_client
         })
     }
 
