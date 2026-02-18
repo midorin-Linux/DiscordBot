@@ -24,8 +24,12 @@ impl Application {
     }
 
     pub async fn run(self) -> Result<()> {
-        let discord_client = self.discord_client.run().await.context("Failed to run Discord client")?;
-        
+        let discord_client = self
+            .discord_client
+            .run()
+            .await
+            .context("Failed to run Discord client")?;
+
         Ok(())
     }
 }
