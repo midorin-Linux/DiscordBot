@@ -7,6 +7,16 @@ fn default_log_level() -> String {
 }
 
 #[derive(Debug, Clone, Deserialize)]
+pub struct Provider {
+    pub api_url: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Model {
+    pub name: String,
+}
+
+#[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     pub ai_provider_token: String,
 
@@ -16,6 +26,9 @@ pub struct Config {
 
     #[serde(default = "default_log_level")]
     pub log_level: String,
+
+    pub provider: Provider,
+    pub model: Model,
 }
 
 impl Config {
@@ -26,6 +39,11 @@ impl Config {
             .add_source(
                 File::with_name(".env")
                     .format(config::FileFormat::Ini)
+                    .required(true),
+            )
+            .add_source(
+                File::with_name("config/settings.toml")
+                    .format(config::FileFormat::Toml)
                     .required(true),
             )
             .add_source(Environment::default().separator("__"))

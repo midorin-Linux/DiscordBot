@@ -4,31 +4,29 @@ use anyhow::{Context, Result};
 use serenity::prelude::*;
 
 pub struct DiscordClient {
-    discord_token: String,
-    guild_id: u64,
+    discord_client: Client,
 }
 
 impl DiscordClient {
     pub async fn new(discord_token: String, guild_id: u64) -> Result<Self> {
-        Ok(Self {
-            discord_token,
-            guild_id,
-        })
-    }
-
-    pub async fn run(self) -> Result<()> {
         let intents = GatewayIntents::all(); //ToDo: 権限を絞る
 
         let command_framework =
-            crate::application::command::command_registry::command_framework(self.guild_id).await;
+            crate::application::command::command_registry::command_framework(guild_id).await;
 
-        let mut client = Client::builder(self.discord_token, intents)
+        let client = Client::builder(discord_token, intents)
             .event_handler(Handler {})
             .framework(command_framework)
             .await
             .context("Failed to create Discord client")?;
 
-        client
+        Ok(Self {
+            discord_client: client,
+        })
+    }
+
+    pub async fn run(mut self) -> Result<()> {
+        self.discord_client
             .start()
             .await
             .context("Failed to start Discord client")?;
