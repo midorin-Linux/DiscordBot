@@ -1,15 +1,9 @@
-use crate::shared::config::{Model, Provider};
 use crate::infrastructure::ai::tools::*;
+use crate::shared::config::{Model, Provider};
 
 use anyhow::Result;
 use rig::prelude::*;
-use rig::{
-    completion::{Prompt, ToolDefinition},
-    providers,
-    tool::Tool,
-};
-use serde::{Deserialize, Serialize};
-use serde_json::json;
+use rig::{providers, tool::Tool};
 
 pub struct RigClient {
     rig_client: rig::agent::Agent<providers::openai::responses_api::ResponsesCompletionModel>,
