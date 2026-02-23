@@ -7,28 +7,31 @@ fn default_log_level() -> String {
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Provider {
+pub struct NLP {
     pub api_url: String,
+    pub model_name: String,
+    pub max_short_term_messages: usize,
 }
 
 #[derive(Debug, Clone, Deserialize)]
-pub struct Model {
-    pub name: String,
+pub struct Embedding {
+    pub api_url: String,
+    pub model_name: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
-    pub ai_provider_token: String,
-
+    pub nlp_token: String,
+    pub embed_token: String,
     pub discord_token: String,
-
     pub guild_id: u64,
+    pub qdrant_url: String,
 
     #[serde(default = "default_log_level")]
     pub log_level: String,
 
-    pub provider: Provider,
-    pub model: Model,
+    pub nlp: NLP,
+    pub embedding: Embedding,
 }
 
 impl Config {

@@ -1,9 +1,12 @@
 use crate::application::command::handlers::*;
 use crate::infrastructure::ai::rig_client::RigClient;
+use crate::infrastructure::store::{in_memory_store::InMemoryStore, vector_store::VectorStore};
 use std::sync::Arc;
 
 pub struct Data {
     pub rig_client: Arc<RigClient>,
+    pub in_memory_store: Arc<InMemoryStore>,
+    pub vector_store: Arc<VectorStore>,
 }
 
 pub type Context<'a> = poise::Context<'a, Data, anyhow::Error>;
@@ -25,6 +28,8 @@ async fn on_error(error: poise::FrameworkError<'_, Data, anyhow::Error>) {
 pub async fn command_framework(
     guild_id: u64,
     rig_client: Arc<RigClient>,
+    in_memory_store: Arc<InMemoryStore>,
+    vector_store: Arc<VectorStore>,
 ) -> poise::framework::Framework<Data, anyhow::Error> {
     let commands = vec![chat::chat(), health::health()];
 
@@ -55,9 +60,13 @@ pub async fn command_framework(
                     &framework.options().commands,
                     guild_id.into(),
                 )
-                .await
-                .unwrap();
-                Ok(Data { rig_client })
+                    .await
+                    .unwrap();
+                Ok(Data {
+                    rig_client,
+                    in_memory_store,
+                    vector_store,
+                })
             })
         })
         .build()
