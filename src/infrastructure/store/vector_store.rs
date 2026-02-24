@@ -1,12 +1,16 @@
-use crate::models::memory::{LongTermMemory, MidTermMemory};
-
 use anyhow::Result;
+use async_trait::async_trait;
 use qdrant_client::{
     Payload, Qdrant,
     qdrant::{
-        Condition, CreateCollectionBuilder, Distance, Filter, PointStruct, QueryPointsBuilder,
-        UpsertPointsBuilder, VectorParamsBuilder,
+        Condition, CreateCollectionBuilder, DeletePointsBuilder, Distance, Filter, PointStruct,
+        QueryPointsBuilder, Range, UpsertPointsBuilder, VectorParamsBuilder,
     },
+};
+
+use crate::{
+    application::traits::long_term_store::LongTermStore,
+    models::memory::{LongTermMemory, MidTermMemory},
 };
 
 const MIDTERM_COLLECTION_NAME: &str = "midterm_memory";
@@ -17,14 +21,14 @@ pub struct VectorStore {
 }
 
 impl VectorStore {
-    pub async fn new(url: &str) -> Result<Self> {
+    pub async fn new(url: &str, dimension: u64) -> Result<Self> {
         let client = Qdrant::from_url(url).build()?;
 
         if !client.collection_exists(MIDTERM_COLLECTION_NAME).await? {
             client
                 .create_collection(
                     CreateCollectionBuilder::new(MIDTERM_COLLECTION_NAME)
-                        .vectors_config(VectorParamsBuilder::new(1536, Distance::Cosine)),
+                        .vectors_config(VectorParamsBuilder::new(dimension, Distance::Cosine)),
                 )
                 .await?;
         }
@@ -33,7 +37,7 @@ impl VectorStore {
             client
                 .create_collection(
                     CreateCollectionBuilder::new(LONGTERM_COLLECTION_NAME)
-                        .vectors_config(VectorParamsBuilder::new(1536, Distance::Cosine)),
+                        .vectors_config(VectorParamsBuilder::new(dimension, Distance::Cosine)),
                 )
                 .await?;
         }
@@ -42,8 +46,11 @@ impl VectorStore {
             qdrant_client: client,
         })
     }
+}
 
-    pub async fn store_longterm(&self, memory: LongTermMemory, embedding: Vec<f32>) -> Result<()> {
+#[async_trait]
+impl LongTermStore for VectorStore {
+    async fn store_longterm(&self, memory: LongTermMemory, embedding: Vec<f32>) -> Result<()> {
         let payload_json = serde_json::to_value(&memory)?;
         let payload: Payload = Payload::try_from(payload_json)
             .map_err(|_| anyhow::anyhow!("Failed to convert memory to payload"))?;
@@ -61,7 +68,7 @@ impl VectorStore {
         Ok(())
     }
 
-    pub async fn store_midterm(&self, memory: MidTermMemory, embedding: Vec<f32>) -> Result<()> {
+    async fn store_midterm(&self, memory: MidTermMemory, embedding: Vec<f32>) -> Result<()> {
         let payload_json = serde_json::to_value(&memory)?;
         let payload: Payload = Payload::try_from(payload_json)
             .map_err(|_| anyhow::anyhow!("Failed to convert memory to payload"))?;
@@ -79,7 +86,7 @@ impl VectorStore {
         Ok(())
     }
 
-    pub async fn search_longterm(
+    async fn search_longterm(
         &self,
         embedding: Vec<f32>,
         user_id: u64,
@@ -109,7 +116,7 @@ impl VectorStore {
         Ok(memories)
     }
 
-    pub async fn search_midterm(
+    async fn search_midterm(
         &self,
         embedding: Vec<f32>,
         user_id: u64,
@@ -137,5 +144,31 @@ impl VectorStore {
         }
 
         Ok(memories)
+    }
+
+    async fn delete_expired_midterm(&self) -> Result<()> {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs() as f64;
+
+        let filter = Filter::must([Condition::range(
+            "expires_at",
+            Range {
+                lt: Some(now),
+                ..Default::default()
+            },
+        )]);
+
+        self.qdrant_client
+            .delete_points(
+                DeletePointsBuilder::new(MIDTERM_COLLECTION_NAME)
+                    .points(filter)
+                    .wait(true),
+            )
+            .await?;
+
+        tracing::info!("Deleted expired midterm memories");
+        Ok(())
     }
 }

@@ -1,6 +1,6 @@
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
-pub fn init_tracing(log_level: &String) {
+pub fn init_tracing(log_level: &str) {
     let env_filter = EnvFilter::new(log_level);
 
     tracing_subscriber::registry()

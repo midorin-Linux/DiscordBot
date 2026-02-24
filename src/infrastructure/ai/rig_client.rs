@@ -1,14 +1,18 @@
-use crate::application::traits::ai_client::AIClient;
-use crate::infrastructure::ai::tools::*;
-use crate::shared::config::{Embedding, NLP};
-
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
-use rig::completion::request::PromptError;
-use rig::completion::{Chat, Message};
-use rig::embeddings::EmbeddingModel;
-use rig::prelude::*;
-use rig::providers;
+use rig::{
+    completion::{Chat, Message, request::PromptError},
+    embeddings::EmbeddingModel,
+    prelude::*,
+    providers,
+};
+
+#[allow(unused_imports)]
+use crate::{
+    application::traits::ai_client::AIClient,
+    infrastructure::ai::tools::*,
+    shared::config::{Embedding, NLP},
+};
 
 pub struct RigClient {
     nlp_client: rig::agent::Agent<providers::openai::responses_api::ResponsesCompletionModel>,
@@ -34,7 +38,7 @@ impl RigClient {
         let nlp_client = openai_comp_nlp_client
             .agent(nlp.model_name)
             .preamble(system_instruction.as_str())
-            .tool(test::Test)
+            // .tool(send_message::SendMessage)
             .default_max_turns(10)
             .build();
 
@@ -55,15 +59,6 @@ impl RigClient {
 
 #[async_trait]
 impl AIClient for RigClient {
-    async fn new(
-        nlp_api_key: String,
-        embed_api_key: String,
-        nlp: NLP,
-        embedding: Embedding,
-    ) -> Result<Self> {
-        RigClient::new(nlp_api_key, embed_api_key, nlp, embedding).await
-    }
-
     async fn generate(&self, prompt: Message, chat_history: Vec<Message>) -> Result<String> {
         self.nlp_client
             .chat(prompt, chat_history)

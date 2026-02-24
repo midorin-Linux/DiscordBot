@@ -1,3 +1,5 @@
+//! これはテスト用のダミーです
+
 use anyhow::Result;
 use rig::{completion::ToolDefinition, tool::Tool};
 use serde::{Deserialize, Serialize};
@@ -15,13 +17,14 @@ pub struct OperationArgs {
 pub struct DiscordMessageSendError;
 
 #[derive(Deserialize, Serialize)]
-pub struct Test;
-impl Tool for Test {
+pub struct SendMessage;
+impl Tool for SendMessage {
     const NAME: &'static str = "send_message";
     type Error = DiscordMessageSendError;
     type Args = OperationArgs;
     type Output = String;
 
+    #[allow(dead_code)]
     async fn definition(&self, _prompt: String) -> ToolDefinition {
         ToolDefinition {
             name: "send_message".to_string(),
@@ -43,8 +46,9 @@ impl Tool for Test {
         }
     }
 
+    #[allow(dead_code)]
     async fn call(&self, _args: Self::Args) -> Result<Self::Output, Self::Error> {
-        let result = "Succeccfly send message".to_string();
+        let result = "Successfully sent message".to_string();
         Ok(result)
     }
 }

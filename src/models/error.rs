@@ -2,11 +2,20 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum AppError {
-    #[error("AI error: {0}")]
-    AIError(String),
+    #[error("AI generation error: {0}")]
+    AIGeneration(String),
+
+    #[error("Embedding error: {0}")]
+    Embedding(String),
+
+    #[error("Store error: {0}")]
+    Store(String),
 
     #[error("Discord error: {0}")]
-    DiscordError(String),
+    Discord(#[from] serenity::Error),
+
+    #[error("Config error: {0}")]
+    Config(String),
 
     #[error("Conversation not found: channel {0}")]
     ConversationNotFound(u64),
@@ -15,5 +24,5 @@ pub enum AppError {
     PermissionDenied { reason: String },
 
     #[error(transparent)]
-    InternalError(#[from] anyhow::Error),
+    Internal(#[from] anyhow::Error),
 }

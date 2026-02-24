@@ -1,8 +1,14 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum Role {
+    User,
+    Assistant,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShortTermMessage {
-    pub role: String,
+    pub role: Role,
     pub user_id: u64,
     pub content: String,
     pub timestamp: i64,

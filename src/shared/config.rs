@@ -17,6 +17,7 @@ pub struct NLP {
 pub struct Embedding {
     pub api_url: String,
     pub model_name: String,
+    pub dimension: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]

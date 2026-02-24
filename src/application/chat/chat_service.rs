@@ -1,29 +1,39 @@
-use crate::application::traits::ai_client::AIClient;
-use crate::infrastructure::store::{in_memory_store::InMemoryStore, vector_store::VectorStore};
-use crate::models::memory::*;
-use anyhow::Result;
-use rig::completion::Message;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use rig::completion::Message;
 use uuid::Uuid;
 
+use crate::{
+    application::traits::{
+        ai_client::AIClient, long_term_store::LongTermStore, short_term_store::ShortTermStore,
+    },
+    models::{error::AppError, memory::*},
+};
+
 pub async fn process_message(
-    ai_client: &impl AIClient,
-    in_memory_store: &InMemoryStore,
-    vector_store: &VectorStore,
+    ai_client: &dyn AIClient,
+    short_term_store: &dyn ShortTermStore,
+    long_term_store: &dyn LongTermStore,
     channel_id: u64,
     user_id: u64,
     user_message: String,
-) -> Result<String> {
-    let in_memory_context = in_memory_store.get_context(channel_id).await;
+) -> Result<String, AppError> {
+    let in_memory_context = short_term_store.get_context(channel_id).await;
 
-    let query_embedding = ai_client.embed(user_message.clone()).await?;
-    let midterm_results = vector_store
+    let query_embedding = ai_client
+        .embed(user_message.clone())
+        .await
+        .map_err(|e| AppError::Embedding(e.to_string()))?;
+
+    let midterm_results = long_term_store
         .search_midterm(query_embedding.clone(), user_id, 3)
-        .await?;
+        .await
+        .map_err(|e| AppError::Store(e.to_string()))?;
 
-    let longterm_results = vector_store
+    let longterm_results = long_term_store
         .search_longterm(query_embedding.clone(), user_id, 5)
-        .await?;
+        .await
+        .map_err(|e| AppError::Store(e.to_string()))?;
 
     let (prompt_message, chat_history) = build_messages(
         &user_message,
@@ -34,39 +44,46 @@ pub async fn process_message(
 
     tracing::debug!("Sending {} messages in chat history", chat_history.len());
 
-    let response = ai_client.generate(prompt_message, chat_history).await?;
+    let response = ai_client
+        .generate(prompt_message, chat_history)
+        .await
+        .map_err(|e| AppError::AIGeneration(e.to_string()))?;
 
     let now = current_timestamp();
     let user_msg = ShortTermMessage {
-        role: "user".to_string(),
+        role: Role::User,
         user_id,
         content: user_message,
         timestamp: now,
     };
-    let overflow = in_memory_store.push(channel_id, user_msg).await;
-    promote_overflow(ai_client, vector_store, user_id, channel_id, overflow).await;
+    let overflow = short_term_store.push(channel_id, user_msg).await;
+    promote_overflow(ai_client, long_term_store, user_id, channel_id, overflow).await;
 
     let assistant_msg = ShortTermMessage {
-        role: "assistant".to_string(),
+        role: Role::Assistant,
         user_id,
         content: response.clone(),
         timestamp: current_timestamp(),
     };
-    let overflow = in_memory_store.push(channel_id, assistant_msg).await;
-    promote_overflow(ai_client, vector_store, user_id, channel_id, overflow).await;
+    let overflow = short_term_store.push(channel_id, assistant_msg).await;
+    promote_overflow(ai_client, long_term_store, user_id, channel_id, overflow).await;
 
     Ok(response)
 }
 
 async fn promote_overflow(
-    ai_client: &impl AIClient,
-    vector_store: &VectorStore,
+    ai_client: &dyn AIClient,
+    long_term_store: &dyn LongTermStore,
     user_id: u64,
     channel_id: u64,
     overflow: Vec<ShortTermMessage>,
 ) {
     for msg in overflow {
-        let summary = format!("[{}] {}", msg.role, msg.content);
+        let role_str = match msg.role {
+            Role::User => "user",
+            Role::Assistant => "assistant",
+        };
+        let summary = format!("[{}] {}", role_str, msg.content);
         let embedding = match ai_client.embed(summary.clone()).await {
             Ok(e) => e,
             Err(err) => {
@@ -85,7 +102,7 @@ async fn promote_overflow(
             expires_at: now + 60 * 60 * 24 * 7, // 7日
         };
 
-        if let Err(err) = vector_store.store_midterm(memory, embedding).await {
+        if let Err(err) = long_term_store.store_midterm(memory, embedding).await {
             tracing::warn!("Failed to store midterm memory: {err}");
         }
     }
@@ -124,9 +141,9 @@ fn build_messages(
     }
 
     for msg in short_context {
-        let message = match msg.role.as_str() {
-            "assistant" => Message::assistant(msg.content.clone()),
-            _ => Message::user(msg.content.clone()),
+        let message = match msg.role {
+            Role::Assistant => Message::assistant(msg.content.clone()),
+            Role::User => Message::user(msg.content.clone()),
         };
         history.push(message);
     }
@@ -141,4 +158,100 @@ fn current_timestamp() -> i64 {
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
         .as_secs() as i64
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_messages_no_context() {
+        let (prompt, history) = build_messages("hello", &[], &[], &[]);
+        assert_eq!(history.len(), 0);
+        assert_eq!(prompt, Message::user("hello".to_string()));
+    }
+
+    #[test]
+    fn build_messages_with_short_context() {
+        let short = vec![
+            ShortTermMessage {
+                role: Role::User,
+                user_id: 1,
+                content: "hi".to_string(),
+                timestamp: 0,
+            },
+            ShortTermMessage {
+                role: Role::Assistant,
+                user_id: 1,
+                content: "hello".to_string(),
+                timestamp: 1,
+            },
+        ];
+
+        let (prompt, history) = build_messages("how are you", &short, &[], &[]);
+        assert_eq!(history.len(), 2);
+        assert_eq!(prompt, Message::user("how are you".to_string()));
+    }
+
+    #[test]
+    fn build_messages_with_longterm_context() {
+        let longterm = vec![LongTermMemory {
+            id: "1".to_string(),
+            user_id: 1,
+            fact: "Likes Rust".to_string(),
+            category: "preference".to_string(),
+            created_at: 0,
+            updated_at: 0,
+        }];
+
+        let (_prompt, history) = build_messages("hello", &[], &[], &longterm);
+        // Should have context injection pair (user + assistant)
+        assert_eq!(history.len(), 2);
+    }
+
+    #[test]
+    fn build_messages_with_midterm_context() {
+        let midterm = vec![MidTermMemory {
+            id: "1".to_string(),
+            user_id: 1,
+            channel_id: 100,
+            summary: "Discussed project".to_string(),
+            created_at: 0,
+            expires_at: 999,
+        }];
+
+        let (_prompt, history) = build_messages("hello", &[], &midterm, &[]);
+        assert_eq!(history.len(), 2);
+    }
+
+    #[test]
+    fn build_messages_full_context() {
+        let short = vec![ShortTermMessage {
+            role: Role::User,
+            user_id: 1,
+            content: "prev msg".to_string(),
+            timestamp: 0,
+        }];
+        let midterm = vec![MidTermMemory {
+            id: "1".to_string(),
+            user_id: 1,
+            channel_id: 100,
+            summary: "Past talk".to_string(),
+            created_at: 0,
+            expires_at: 999,
+        }];
+        let longterm = vec![LongTermMemory {
+            id: "1".to_string(),
+            user_id: 1,
+            fact: "Likes cats".to_string(),
+            category: "preference".to_string(),
+            created_at: 0,
+            updated_at: 0,
+        }];
+
+        let (prompt, history) = build_messages("new msg", &short, &midterm, &longterm);
+        // 2 context injection + 1 short term
+        assert_eq!(history.len(), 3);
+        assert_eq!(prompt, Message::user("new msg".to_string()));
+    }
 }

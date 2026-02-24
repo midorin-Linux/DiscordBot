@@ -1,12 +1,16 @@
-use crate::application::command::handlers::*;
-use crate::infrastructure::ai::rig_client::RigClient;
-use crate::infrastructure::store::{in_memory_store::InMemoryStore, vector_store::VectorStore};
 use std::sync::Arc;
 
+use crate::application::{
+    command::handlers::*,
+    traits::{
+        ai_client::AIClient, long_term_store::LongTermStore, short_term_store::ShortTermStore,
+    },
+};
+
 pub struct Data {
-    pub rig_client: Arc<RigClient>,
-    pub in_memory_store: Arc<InMemoryStore>,
-    pub vector_store: Arc<VectorStore>,
+    pub ai_client: Arc<dyn AIClient>,
+    pub short_term_store: Arc<dyn ShortTermStore>,
+    pub long_term_store: Arc<dyn LongTermStore>,
 }
 
 pub type Context<'a> = poise::Context<'a, Data, anyhow::Error>;
@@ -15,11 +19,11 @@ async fn on_error(error: poise::FrameworkError<'_, Data, anyhow::Error>) {
     match error {
         poise::FrameworkError::Setup { error, .. } => panic!("Failed to start bot: {:?}", error),
         poise::FrameworkError::Command { error, ctx, .. } => {
-            println!("Error in command `{}`: {:?}", ctx.command().name, error,);
+            tracing::error!("Error in command `{}`: {:?}", ctx.command().name, error);
         }
         error => {
             if let Err(e) = poise::builtins::on_error(error).await {
-                println!("Error while handling error: {}", e)
+                tracing::error!("Error while handling error: {}", e);
             }
         }
     }
@@ -27,9 +31,9 @@ async fn on_error(error: poise::FrameworkError<'_, Data, anyhow::Error>) {
 
 pub async fn command_framework(
     guild_id: u64,
-    rig_client: Arc<RigClient>,
-    in_memory_store: Arc<InMemoryStore>,
-    vector_store: Arc<VectorStore>,
+    ai_client: Arc<dyn AIClient>,
+    short_term_store: Arc<dyn ShortTermStore>,
+    long_term_store: Arc<dyn LongTermStore>,
 ) -> poise::framework::Framework<Data, anyhow::Error> {
     let commands = vec![chat::chat(), health::health()];
 
@@ -60,12 +64,11 @@ pub async fn command_framework(
                     &framework.options().commands,
                     guild_id.into(),
                 )
-                .await
-                .unwrap();
+                .await?;
                 Ok(Data {
-                    rig_client,
-                    in_memory_store,
-                    vector_store,
+                    ai_client,
+                    short_term_store,
+                    long_term_store,
                 })
             })
         })
