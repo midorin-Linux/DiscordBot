@@ -28,7 +28,7 @@ impl DiscordClient {
             in_memory_store,
             vector_store,
         )
-            .await;
+        .await;
 
         let client = Client::builder(discord_token, intents)
             .event_handler(Handler { rig_client })

@@ -27,7 +27,7 @@ impl Application {
             config.nlp.clone(),
             config.embedding.clone(),
         )
-            .await?;
+        .await?;
 
         let in_memory_store = Arc::new(InMemoryStore::new(config.nlp.max_short_term_messages));
         let vector_store = Arc::new(
@@ -43,7 +43,7 @@ impl Application {
             in_memory_store,
             vector_store,
         )
-            .await?;
+        .await?;
 
         Ok(Self { discord_client })
     }

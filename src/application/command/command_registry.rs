@@ -60,8 +60,8 @@ pub async fn command_framework(
                     &framework.options().commands,
                     guild_id.into(),
                 )
-                    .await
-                    .unwrap();
+                .await
+                .unwrap();
                 Ok(Data {
                     rig_client,
                     in_memory_store,

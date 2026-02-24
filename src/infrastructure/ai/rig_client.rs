@@ -4,8 +4,8 @@ use crate::shared::config::{Embedding, NLP};
 
 use anyhow::{Context, Result, anyhow};
 use async_trait::async_trait;
-use rig::completion::{Chat, Message};
 use rig::completion::request::PromptError;
+use rig::completion::{Chat, Message};
 use rig::embeddings::EmbeddingModel;
 use rig::prelude::*;
 use rig::providers;
