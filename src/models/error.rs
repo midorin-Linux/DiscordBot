@@ -12,7 +12,7 @@ pub enum AppError {
     Store(String),
 
     #[error("Discord error: {0}")]
-    Discord(#[from] serenity::Error),
+    Discord(String),
 
     #[error("Config error: {0}")]
     Config(String),
@@ -25,4 +25,19 @@ pub enum AppError {
 
     #[error(transparent)]
     Internal(#[from] anyhow::Error),
+}
+
+impl AppError {
+    pub fn user_facing_message(&self) -> &str {
+        match self {
+            AppError::AIGeneration(_) => "AI応答の生成に失敗しました。",
+            AppError::Embedding(_) => "テキストの処理に失敗しました。",
+            AppError::Store(_) => "記憶の検索に失敗しました。",
+            AppError::Discord(_) => "Discordとの通信に失敗しました。",
+            AppError::Config(_) => "設定の読み込みに失敗しました。",
+            AppError::ConversationNotFound(_) => "会話が見つかりませんでした。",
+            AppError::PermissionDenied { .. } => "権限がありません。",
+            AppError::Internal(_) => "予期しないエラーが発生しました。",
+        }
+    }
 }

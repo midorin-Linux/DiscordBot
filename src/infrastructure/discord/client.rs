@@ -26,7 +26,7 @@ impl DiscordClient {
             | GatewayIntents::GUILD_MESSAGES
             | GatewayIntents::MESSAGE_CONTENT;
 
-        let command_framework = crate::application::command::command_registry::command_framework(
+        let command_framework = crate::presentation::command::command_registry::command_framework(
             guild_id,
             ai_client.clone(),
             short_term_store.clone(),

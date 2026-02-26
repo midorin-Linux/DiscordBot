@@ -11,6 +11,7 @@ use rig::{
 use crate::{
     application::traits::ai_client::AIClient,
     infrastructure::ai::tools::*,
+    models::memory::{ChatMessage, ChatRole},
     shared::config::{Embedding, NLP},
 };
 
@@ -57,11 +58,25 @@ impl RigClient {
     }
 }
 
+fn to_rig_message(msg: ChatMessage) -> Message {
+    match msg.role {
+        ChatRole::User => Message::user(msg.content),
+        ChatRole::Assistant => Message::assistant(msg.content),
+    }
+}
+
 #[async_trait]
 impl AIClient for RigClient {
-    async fn generate(&self, prompt: Message, chat_history: Vec<Message>) -> Result<String> {
+    async fn generate(
+        &self,
+        prompt: ChatMessage,
+        chat_history: Vec<ChatMessage>,
+    ) -> Result<String> {
+        let rig_prompt = to_rig_message(prompt);
+        let rig_history: Vec<Message> = chat_history.into_iter().map(to_rig_message).collect();
+
         self.nlp_client
-            .chat(prompt, chat_history)
+            .chat(rig_prompt, rig_history)
             .await
             .map_err(|e: PromptError| anyhow!(e.to_string()))
     }

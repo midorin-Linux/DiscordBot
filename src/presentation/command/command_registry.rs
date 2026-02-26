@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
-use crate::application::{
-    command::handlers::*,
-    traits::{
+use crate::{
+    application::traits::{
         ai_client::AIClient, long_term_store::LongTermStore, short_term_store::ShortTermStore,
     },
+    presentation::command::handlers::*,
 };
 
 pub struct Data {

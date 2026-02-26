@@ -1,6 +1,5 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use rig::completion::Message;
 use uuid::Uuid;
 
 use crate::{
@@ -57,7 +56,13 @@ pub async fn process_message(
         timestamp: now,
     };
     let overflow = short_term_store.push(channel_id, user_msg).await;
-    promote_overflow(ai_client, long_term_store, user_id, channel_id, overflow).await;
+    let fail_count =
+        promote_overflow(ai_client, long_term_store, user_id, channel_id, overflow).await;
+    if fail_count > 0 {
+        tracing::warn!(
+            "promote_overflow: {fail_count} user message(s) failed to promote to midterm memory"
+        );
+    }
 
     let assistant_msg = ShortTermMessage {
         role: Role::Assistant,
@@ -66,7 +71,13 @@ pub async fn process_message(
         timestamp: current_timestamp(),
     };
     let overflow = short_term_store.push(channel_id, assistant_msg).await;
-    promote_overflow(ai_client, long_term_store, user_id, channel_id, overflow).await;
+    let fail_count =
+        promote_overflow(ai_client, long_term_store, user_id, channel_id, overflow).await;
+    if fail_count > 0 {
+        tracing::warn!(
+            "promote_overflow: {fail_count} assistant message(s) failed to promote to midterm memory"
+        );
+    }
 
     Ok(response)
 }
@@ -77,7 +88,9 @@ async fn promote_overflow(
     user_id: u64,
     channel_id: u64,
     overflow: Vec<ShortTermMessage>,
-) {
+) -> usize {
+    let mut fail_count = 0usize;
+
     for msg in overflow {
         let role_str = match msg.role {
             Role::User => "user",
@@ -88,6 +101,7 @@ async fn promote_overflow(
             Ok(e) => e,
             Err(err) => {
                 tracing::warn!("Failed to embed overflow message for midterm: {err}");
+                fail_count += 1;
                 continue;
             }
         };
@@ -104,8 +118,11 @@ async fn promote_overflow(
 
         if let Err(err) = long_term_store.store_midterm(memory, embedding).await {
             tracing::warn!("Failed to store midterm memory: {err}");
+            fail_count += 1;
         }
     }
+
+    fail_count
 }
 
 fn build_messages(
@@ -113,8 +130,8 @@ fn build_messages(
     short_context: &[ShortTermMessage],
     midterm: &[MidTermMemory],
     longterm: &[LongTermMemory],
-) -> (Message, Vec<Message>) {
-    let mut history: Vec<Message> = Vec::new();
+) -> (ChatMessage, Vec<ChatMessage>) {
+    let mut history: Vec<ChatMessage> = Vec::new();
 
     if !longterm.is_empty() || !midterm.is_empty() {
         let mut context_text = String::new();
@@ -134,21 +151,21 @@ fn build_messages(
             }
         }
 
-        history.push(Message::user(context_text.trim_end().to_string()));
-        history.push(Message::assistant(
+        history.push(ChatMessage::user(context_text.trim_end().to_string()));
+        history.push(ChatMessage::assistant(
             "Understood. I will use this context in our conversation.",
         ));
     }
 
     for msg in short_context {
         let message = match msg.role {
-            Role::Assistant => Message::assistant(msg.content.clone()),
-            Role::User => Message::user(msg.content.clone()),
+            Role::Assistant => ChatMessage::assistant(msg.content.clone()),
+            Role::User => ChatMessage::user(msg.content.clone()),
         };
         history.push(message);
     }
 
-    let prompt = Message::user(user_message.to_string());
+    let prompt = ChatMessage::user(user_message.to_string());
 
     (prompt, history)
 }
@@ -168,7 +185,7 @@ mod tests {
     fn build_messages_no_context() {
         let (prompt, history) = build_messages("hello", &[], &[], &[]);
         assert_eq!(history.len(), 0);
-        assert_eq!(prompt, Message::user("hello".to_string()));
+        assert_eq!(prompt, ChatMessage::user("hello"));
     }
 
     #[test]
@@ -190,7 +207,7 @@ mod tests {
 
         let (prompt, history) = build_messages("how are you", &short, &[], &[]);
         assert_eq!(history.len(), 2);
-        assert_eq!(prompt, Message::user("how are you".to_string()));
+        assert_eq!(prompt, ChatMessage::user("how are you"));
     }
 
     #[test]
@@ -252,6 +269,6 @@ mod tests {
         let (prompt, history) = build_messages("new msg", &short, &midterm, &longterm);
         // 2 context injection + 1 short term
         assert_eq!(history.len(), 3);
-        assert_eq!(prompt, Message::user("new msg".to_string()));
+        assert_eq!(prompt, ChatMessage::user("new msg"));
     }
 }

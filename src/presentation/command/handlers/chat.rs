@@ -1,7 +1,6 @@
 use crate::{
-    application::{chat::chat_service::process_message, command::command_registry::Context},
-    models::error::AppError,
-    shared::discord_utils::split_message,
+    application::chat::chat_service::process_message,
+    presentation::command::command_registry::Context, shared::discord_utils::split_message,
 };
 
 #[poise::command(prefix_command, slash_command)]
@@ -27,19 +26,13 @@ pub async fn chat(
     {
         Ok(response) => response,
         Err(err) => {
-            let user_message = match &err {
-                AppError::AIGeneration(_) => "AI応答の生成に失敗しました。",
-                AppError::Embedding(_) => "テキストの処理に失敗しました。",
-                AppError::Store(_) => "記憶の検索に失敗しました。",
-                _ => "予期しないエラーが発生しました。",
-            };
             tracing::error!(
                 channel_id,
                 user_id,
                 error = %err,
                 "Failed to process message"
             );
-            user_message.to_string()
+            err.user_facing_message().to_string()
         }
     };
 

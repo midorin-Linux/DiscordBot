@@ -64,7 +64,7 @@ pub async fn message(
                 error = %err,
                 "Failed to process mention message"
             );
-            "エラーが発生しました。もう一度お試しください。".to_string()
+            err.user_facing_message().to_string()
         }
     };
 
